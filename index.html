@@ -143,7 +143,9 @@
       background: var(--soft, var(--result-soft));
       border-left: 4px solid var(--colour, var(--result));
     }
+    .result { gap: 12px; }
     .result .value {
+      white-space: nowrap;
       font-weight: 700;
       font-size: 1.05rem;
       color: var(--colour, var(--result));
@@ -153,16 +155,62 @@
     .result.key { padding: 16px 14px; }
     .result.key .value { font-size: 1.35rem; }
 
-    .placeholder {
-      height: 240px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      border: 2px dashed #b6e3ec;
-      border-radius: 8px;
-      background: repeating-linear-gradient(135deg, #f7fdfe, #f7fdfe 12px, #effafc 12px, #effafc 24px);
+    /* Health signal under the LTV:CAC ratio (icon + words, never colour alone) */
+    .signal {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: -2px 0 10px 4px;
     }
+    .signal.good { color: #047857; }
+    .signal.warn { color: #b45309; }
+    .signal.bad  { color: #b91c1c; }
+
+    /* Chart summary tiles */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 720px) { .stats { grid-template-columns: 1fr; } }
+    .stat {
+      background: #f0fbfd;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .stat .label { font-size: 0.8rem; color: var(--muted); }
+    .stat .big { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
+
+    /* The chart itself */
+    .chart-box { position: relative; }
+    .chart-box svg { display: block; width: 100%; overflow: visible; }
+    .chart-box svg:focus { outline: 2px solid var(--brand-2); outline-offset: 4px; border-radius: 4px; }
+    .grid-line { stroke: #e9edf3; stroke-width: 1; }
+    .zero-line { stroke: #9aa5b5; stroke-width: 1; }
+    .axis-text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: #1d2330;
+      color: #fff;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      transform: translate(-50%, -110%);
+      display: none;
+      font-variant-numeric: tabular-nums;
+    }
+    .note { font-size: 0.85rem; color: var(--muted); margin: 12px 0 0; }
+
+    /* Month-by-month table (every value readable without hovering) */
+    details { margin-top: 16px; }
+    summary { cursor: pointer; font-weight: 600; color: var(--brand-1); }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+    th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
   </style>
 </head>
 
@@ -239,6 +287,7 @@
       <div class="result retention"><span>Average customer lifetime</span><span class="value" id="outLifetime">–</span></div>
       <div class="result key"><span>Lifetime value (LTV)</span><span class="value" id="outLtv">–</span></div>
       <div class="result key"><span>LTV : CAC ratio</span><span class="value" id="outRatio">–</span></div>
+      <div class="signal" id="outSignal"></div>
       <div class="result growth"><span>CAC payback</span><span class="value" id="outPayback">–</span></div>
       <div class="result cost"><span>Break-even customers</span><span class="value" id="outBreakEven">–</span></div>
     </section>
@@ -248,7 +297,25 @@
   <!-- BOTTOM: the 24-month chart (built in Step 3) -->
   <section class="card chart">
     <h2>24-month projection</h2>
-    <div class="placeholder">Chart will appear here in Step 3</div>
+    <div class="stats">
+      <div class="stat"><div class="label">Cash needed (lowest point)</div><div class="big" id="outCash">–</div></div>
+      <div class="stat"><div class="label">Monthly profit turns positive</div><div class="big" id="outProfitMonth">–</div></div>
+      <div class="stat"><div class="label">Cumulative profit at month 24</div><div class="big" id="outFinal">–</div></div>
+    </div>
+
+    <div class="chart-box" id="chartBox">
+      <svg id="chart" tabindex="0" role="img" aria-label="Line chart of cumulative profit over 24 months. Use left and right arrow keys to read each month."></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <p class="note">Line shows <strong>cumulative profit</strong> (running total). Hover over the chart, or click it and use the arrow keys, to see each month.</p>
+
+    <details>
+      <summary>Show the numbers month by month</summary>
+      <table>
+        <thead><tr><th>Month</th><th>Active customers</th><th>Monthly profit</th><th>Cumulative profit</th></tr></thead>
+        <tbody id="table"></tbody>
+      </table>
+    </details>
   </section>
 </main>
 
@@ -294,6 +361,268 @@
       input.setSelectionRange(pos, pos);
     });
   });
+
+  // =================== DISPLAY HELPERS: how numbers are written ===================
+
+  // Plain number with commas, e.g. 1234.567 -> "1,234.6" (with 1 decimal place).
+  // Uses a proper minus sign "−" rather than a hyphen "-".
+  function num(value, decimals) {
+    const text = Math.abs(value).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: decimals });
+    return (value < 0 && text !== "0" ? "−" : "") + text;
+  }
+
+  // Money in pounds, e.g. -18250 -> "−£18,250", 35 -> "£35", 5.5 -> "£5.50".
+  // wholePounds = true always rounds to the nearest pound (used for the projection).
+  // Rounds ONCE, straight to the final precision, to avoid double-rounding errors.
+  function money(value, wholePounds) {
+    if (value === Infinity) return "∞";
+    if (value === -Infinity) return "−∞";
+    const pence = Math.round(Math.abs(value) * 100);
+    const showPence = !wholePounds && pence < 100000 && pence % 100 !== 0;
+    const amount = showPence ? pence / 100 : Math.round(Math.abs(value));
+    if (amount === 0) return "£0";
+    const text = amount.toLocaleString("en-GB", {
+      minimumFractionDigits: showPence ? 2 : 0,
+      maximumFractionDigits: showPence ? 2 : 0
+    });
+    return (value < 0 ? "−" : "") + "£" + text;
+  }
+
+  // Short money for chart axis labels, e.g. -130000 -> "−£130k"
+  function moneyShort(value) {
+    const abs = Math.abs(value);
+    let text;
+    if (abs >= 1e6) text = num(abs / 1e6, 1) + "m";
+    else if (abs >= 1e3) text = num(abs / 1e3, 1) + "k";
+    else text = num(abs, 0);
+    return (value < 0 ? "−" : "") + "£" + text;
+  }
+
+  // =================== THE CALCULATIONS (formulas from SPEC.md) ===================
+  // This function only does maths: numbers in, numbers out. No page changes.
+  // Keeping it separate makes it easy to test against the worked example.
+
+  function calculate(inp) {
+    const churn = Math.min(Math.max(inp.churnPct, 0), 100) / 100;
+
+    const margin = inp.price - inp.variableCost;                 // £ per customer per month
+    const marginPct = inp.price > 0 ? margin / inp.price : null; // share of price kept
+    const lifetime = churn > 0 ? 1 / churn : Infinity;           // months
+    const ltv = margin === 0 ? 0 : margin * lifetime;            // £ per customer, lifetime
+
+    let ratio = null;
+    if (inp.cac > 0) ratio = ltv / inp.cac;
+    else if (ltv > 0) ratio = Infinity;                          // free acquisition
+
+    const payback = margin > 0 ? inp.cac / margin : null;        // months
+    // Tiny tolerance stops floating-point fuzz (e.g. 285.0000001) rounding up wrongly
+    const breakEven = margin > 0 ? Math.ceil(inp.fixedCosts / margin - 1e-9) : null;
+
+    // 24-month projection, starting from zero customers
+    const months = [];
+    let active = 0, cumulative = 0;
+    for (let m = 1; m <= 24; m++) {
+      active = active * (1 - churn) + inp.newCustomers;
+      const profit = active * margin - inp.newCustomers * inp.cac - inp.fixedCosts;
+      cumulative += profit;
+      months.push({ month: m, active: active, profit: profit, cumulative: cumulative });
+    }
+
+    // Lowest point of cumulative profit = cash needed to fund the business
+    let lowest = { cumulative: 0, month: null };
+    months.forEach(function (row) {
+      if (row.cumulative < lowest.cumulative) lowest = row;
+    });
+    const firstProfitable = months.find(function (row) { return row.profit > 0; });
+
+    return {
+      margin, marginPct, lifetime, ltv, ratio, payback, breakEven, months,
+      cashNeeded: -lowest.cumulative,
+      cashMonth: lowest.month,
+      profitMonth: firstProfitable ? firstProfitable.month : null,
+      finalCumulative: months[23].cumulative
+    };
+  }
+
+  // =================== SHOW THE RESULTS ON THE PAGE ===================
+
+  let latest = null; // most recent results, reused when the chart is redrawn
+
+  function show(id, text) { document.getElementById(id).textContent = text; }
+
+  function update() {
+    const r = calculate({
+      price: readNumber("price"),
+      variableCost: readNumber("variableCost"),
+      fixedCosts: readNumber("fixedCosts"),
+      cac: readNumber("cac"),
+      newCustomers: readNumber("newCustomers"),
+      churnPct: readNumber("churn")
+    });
+    latest = r;
+
+    show("outMargin", money(r.margin));
+    show("outMarginPct", r.marginPct === null ? "–" : num(r.marginPct * 100, 1) + "%");
+    show("outLifetime", r.lifetime === Infinity ? "∞ (no churn)" : num(r.lifetime, 1) + " months");
+    show("outLtv", money(r.ltv));
+    show("outRatio", r.ratio === null ? "–" : r.ratio === Infinity ? "∞" : num(r.ratio, 1) + " : 1");
+    show("outPayback", r.payback === null ? "Never (no margin)" : num(r.payback, 1) + " months");
+    show("outBreakEven", r.breakEven === null ? "Never (no margin)" : num(r.breakEven, 0) + " customers");
+
+    // Health signal: a rule of thumb, shown with an icon and words
+    const signal = document.getElementById("outSignal");
+    if (r.margin <= 0) {
+      signal.className = "signal bad";
+      signal.textContent = "✕ No margin: you lose money serving each customer";
+    } else if (r.ratio === null) {
+      signal.className = "signal";
+      signal.textContent = "";
+    } else if (r.ratio >= 3) {
+      signal.className = "signal good";
+      signal.textContent = "✓ Healthy: at or above the common 3 : 1 rule of thumb";
+    } else if (r.ratio >= 1) {
+      signal.className = "signal warn";
+      signal.textContent = "! Marginal: profitable per customer, but below 3 : 1";
+    } else {
+      signal.className = "signal bad";
+      signal.textContent = "✕ Losing money: each customer costs more to win than they bring in";
+    }
+
+    // Chart summary tiles
+    show("outCash", r.cashMonth === null ? "£0" : money(r.cashNeeded, true) + " · month " + r.cashMonth);
+    show("outProfitMonth", r.profitMonth === null ? "Not within 24 months" : "Month " + r.profitMonth);
+    show("outFinal", money(r.finalCumulative, true));
+
+    // Month-by-month table
+    document.getElementById("table").innerHTML = r.months.map(function (row) {
+      return "<tr><td>" + row.month + "</td><td>" + num(row.active, 1) + "</td><td>" +
+        money(row.profit, true) + "</td><td>" + money(row.cumulative, true) + "</td></tr>";
+    }).join("");
+
+    drawChart();
+  }
+
+  // =================== THE CHART (drawn as SVG, no external libraries) ===================
+
+  let activeMonth = null; // month highlighted by hover or keyboard
+
+  function niceStep(rough) {
+    const power = Math.pow(10, Math.floor(Math.log10(rough)));
+    const f = rough / power;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * power;
+  }
+
+  function drawChart() {
+    const svg = document.getElementById("chart");
+    const width = document.getElementById("chartBox").clientWidth;
+    const height = 300;
+    const pad = { left: 64, right: 16, top: 16, bottom: 30 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const data = latest.months;
+
+    // Vertical range: always include £0, plus headroom below the lowest point for its label
+    let lo = Math.min(0, ...data.map(d => d.cumulative));
+    let hi = Math.max(0, ...data.map(d => d.cumulative));
+    if (hi === lo) hi = lo + 1;
+    if (lo < 0) lo -= (hi - lo) * 0.15;
+    const step = niceStep((hi - lo) / 5);
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+
+    const x = m => pad.left + (m - 1) / 23 * plotW;
+    const y = v => pad.top + (hi - v) / (hi - lo) * plotH;
+
+    let s = "";
+
+    // Gridlines and £ labels
+    for (let v = lo; v <= hi + step / 2; v += step) {
+      s += '<line class="' + (Math.abs(v) < step / 2 ? "zero-line" : "grid-line") + '" x1="' + pad.left +
+        '" x2="' + (width - pad.right) + '" y1="' + y(v) + '" y2="' + y(v) + '"/>';
+      s += '<text class="axis-text" x="' + (pad.left - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end">' +
+        moneyShort(Math.abs(v) < step / 2 ? 0 : v) + "</text>";
+    }
+
+    // Month labels along the bottom
+    [1, 6, 12, 18, 24].forEach(function (m) {
+      s += '<text class="axis-text" x="' + x(m) + '" y="' + (height - 8) + '" text-anchor="middle">' + (width < 560 ? "M" : "Month ") + m + "</text>";
+    });
+
+    // Shaded area between the line and £0, then the line itself
+    const points = data.map(d => x(d.month) + "," + y(d.cumulative)).join(" L");
+    s += '<path d="M' + x(1) + "," + y(0) + " L" + points + " L" + x(24) + "," + y(0) +
+      ' Z" fill="rgba(8,145,178,0.10)"/>';
+    s += '<path d="M' + points + '" fill="none" stroke="#0891b2" stroke-width="2" stroke-linejoin="round"/>';
+
+    // Label the lowest point: the cash you'd need
+    if (latest.cashMonth !== null) {
+      const cx = x(latest.cashMonth), cy = y(-latest.cashNeeded);
+      const anchor = cx > width - 140 ? "end" : cx < pad.left + 140 ? "start" : "middle";
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="#0891b2" stroke="#fff" stroke-width="2"/>';
+      s += '<text x="' + cx + '" y="' + (cy + 22) + '" text-anchor="' + anchor +
+        '" font-size="12" font-weight="600" fill="#1d2330">Cash needed: ' + money(latest.cashNeeded, true) + "</text>";
+    }
+
+    // Hover highlight: vertical line + dot for the selected month
+    if (activeMonth !== null) {
+      const d = data[activeMonth - 1];
+      s += '<line x1="' + x(d.month) + '" x2="' + x(d.month) + '" y1="' + pad.top + '" y2="' + (pad.top + plotH) +
+        '" stroke="#9aa5b5" stroke-width="1"/>';
+      s += '<circle cx="' + x(d.month) + '" cy="' + y(d.cumulative) + '" r="5" fill="#0891b2" stroke="#fff" stroke-width="2"/>';
+    }
+
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+    svg.setAttribute("height", height);
+    svg.innerHTML = s;
+
+    // Tooltip
+    const tip = document.getElementById("tooltip");
+    if (activeMonth === null) {
+      tip.style.display = "none";
+    } else {
+      const d = data[activeMonth - 1];
+      tip.innerHTML = "<strong>Month " + d.month + "</strong><br>" +
+        "Active customers: " + num(d.active, 1) + "<br>" +
+        "Monthly profit: " + money(d.profit, true) + "<br>" +
+        "Cumulative: " + money(d.cumulative, true);
+      tip.style.display = "block";
+      tip.style.left = Math.min(Math.max(x(d.month), 110), width - 110) + "px";
+      tip.style.top = Math.max(y(d.cumulative), 90) + "px";
+    }
+
+    // Remember the scale so mouse position can be turned into a month
+    svg.dataset.padLeft = pad.left;
+    svg.dataset.plotW = plotW;
+  }
+
+  // Mouse: pick the nearest month to the pointer
+  const chartEl = document.getElementById("chart");
+  chartEl.addEventListener("mousemove", function (e) {
+    const rect = chartEl.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const m = Math.round((px - Number(chartEl.dataset.padLeft)) / Number(chartEl.dataset.plotW) * 23) + 1;
+    activeMonth = Math.min(Math.max(m, 1), 24);
+    drawChart();
+  });
+  chartEl.addEventListener("mouseleave", function () { activeMonth = null; drawChart(); });
+
+  // Keyboard: arrow keys move month by month
+  chartEl.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (activeMonth === null) activeMonth = 1;
+      else activeMonth = Math.min(Math.max(activeMonth + (e.key === "ArrowRight" ? 1 : -1), 1), 24);
+      drawChart();
+    }
+  });
+  chartEl.addEventListener("blur", function () { activeMonth = null; drawChart(); });
+
+  // Recalculate whenever any input changes; redraw the chart if the window is resized
+  document.querySelectorAll("input.num").forEach(function (input) {
+    input.addEventListener("input", update);
+  });
+  window.addEventListener("resize", drawChart);
+  update();
 </script>
 </body>
 </html>

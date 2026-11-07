@@ -53,11 +53,17 @@ Worked example (same inputs as above):
 | 1 | 50 | −£18,250 | −£18,250 |
 | 6 | 264.9 | −£10,728 | −£86,164 |
 | 12 | 459.6 | −£3,913 | −£125,661 |
+| 16 | 559.9 | −£404 | **−£132,316** (lowest point) |
+| 17 | 581.9 | +£366 | −£131,950 |
 | 18 | 602.8 | +£1,097 | −£130,852 |
 | 24 | 708.0 | +£4,780 | −£110,827 |
 
-**What this shows:** monthly profit turns positive between months 12 and 18.
-Cumulative profit hits its lowest point around then. That low point is the **cash you'd need to fund the business** before it pays for itself, about £131k with these numbers.
+**What this shows:** monthly profit turns positive in **month 17**.
+Cumulative profit hits its lowest point in **month 16**, at **−£132,316**. That low point is the **cash you'd need to fund the business** before it pays for itself.
+
+> **Correction (Step 3):** an earlier version of this document said the lowest point was about £131k around month 18.
+> That was wrong. It was read from sample months only. Testing the finished calculator found the true low point at month 16.
+
 After that the hole starts to shrink, but by month 24 it is still about £111k.
 
 ## Known limitations
