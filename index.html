@@ -7,31 +7,57 @@
 
   <!-- ===================== CSS: how the page LOOKS ===================== -->
   <style>
-    /* Colours and spacing defined once, reused everywhere */
+    /* Colours defined once, reused everywhere.
+       Each type of number has its own colour so the eye can group them:
+       revenue = green, costs = orange, growth = purple, retention = pink. */
     :root {
-      --bg: #f6f7f9;
-      --card: #ffffff;
       --text: #1d2330;
       --muted: #5f6b7a;
-      --accent: #2d5bd7;
-      --border: #dde1e7;
+      --border: #e3e6ee;
+
+      --brand-1: #4338ca;   /* indigo */
+      --brand-2: #0891b2;   /* teal   */
+
+      --revenue: #059669;      --revenue-soft: #e7f8f1;
+      --cost: #ea580c;         --cost-soft: #fff1e8;
+      --growth: #7c3aed;       --growth-soft: #f3edff;
+      --retention: #db2777;    --retention-soft: #fdecf4;
+      --result: #2563eb;       --result-soft: #eaf1ff;
     }
 
     body {
       margin: 0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
       color: var(--text);
+      background: linear-gradient(180deg, #eef2ff 0%, #f0fdfa 100%);
+      min-height: 100vh;
     }
 
+    /* Coloured banner across the top */
+    header {
+      background: linear-gradient(120deg, var(--brand-1), var(--brand-2));
+      color: #fff;
+      padding: 36px 20px 72px;
+    }
+    header .inner { max-width: 960px; margin: 0 auto; }
+    header h1 { margin: 0 0 6px; font-size: 2rem; }
+    header p { margin: 0; opacity: 0.9; }
+    .tag {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.85rem;
+      margin-top: 14px;
+      margin-right: 6px;
+    }
+
+    /* Cards overlap the banner slightly for a layered look */
     main {
       max-width: 960px;
-      margin: 0 auto;
-      padding: 32px 20px 64px;
+      margin: -44px auto 0;
+      padding: 0 20px 64px;
     }
-
-    h1 { margin: 0 0 4px; font-size: 1.8rem; }
-    .subtitle { margin: 0 0 28px; color: var(--muted); }
 
     /* Two columns side by side on wide screens, stacked on phones */
     .layout {
@@ -44,32 +70,55 @@
     }
 
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 22px 24px;
+      box-shadow: 0 6px 24px rgba(30, 41, 80, 0.08);
+      border-top: 5px solid var(--card-colour, var(--brand-1));
     }
-    .card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+    .card h2 { margin: 0 0 16px; font-size: 1.15rem; }
+    .card.inputs  { --card-colour: var(--brand-1); }
+    .card.results { --card-colour: var(--result); }
+    .card.chart   { --card-colour: var(--brand-2); margin-top: 20px; }
 
-    /* One input row: label on top, box underneath, hint below */
-    .field { margin-bottom: 16px; }
+    /* Small coloured heading for each group of inputs */
+    .group-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--colour);
+      margin: 18px 0 8px;
+    }
+    .group-title:first-of-type { margin-top: 0; }
+
+    /* Each input picks up the colour of its group */
+    .revenue   { --colour: var(--revenue);   --soft: var(--revenue-soft); }
+    .cost      { --colour: var(--cost);      --soft: var(--cost-soft); }
+    .growth    { --colour: var(--growth);    --soft: var(--growth-soft); }
+    .retention { --colour: var(--retention); --soft: var(--retention-soft); }
+
+    .field { margin-bottom: 14px; }
     .field label { display: block; font-weight: 600; margin-bottom: 4px; }
     .field .hint { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
 
     /* The box with the £ or % symbol attached */
     .input-wrap {
       display: flex;
-      align-items: center;
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .input-wrap:focus-within { border-color: var(--accent); }
+    .input-wrap:focus-within {
+      border-color: var(--colour);
+      box-shadow: 0 0 0 3px var(--soft);
+    }
     .input-wrap span {
       padding: 0 12px;
-      color: var(--muted);
-      background: #f0f2f5;
-      align-self: stretch;
+      font-weight: 700;
+      color: var(--colour);
+      background: var(--soft);
       display: flex;
       align-items: center;
     }
@@ -80,99 +129,171 @@
       font-size: 1rem;
       outline: none;
       min-width: 0;
+      font-variant-numeric: tabular-nums;
     }
 
-    /* Results list */
+    /* Results: each one is a softly tinted tile */
     .result {
       display: flex;
       justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
+      align-items: center;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      background: var(--soft, var(--result-soft));
+      border-left: 4px solid var(--colour, var(--result));
     }
-    .result:last-child { border-bottom: none; }
-    .result .value { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .result .value {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--colour, var(--result));
+      font-variant-numeric: tabular-nums;
+    }
+    /* The headline results are slightly larger */
+    .result.key { padding: 16px 14px; }
+    .result.key .value { font-size: 1.35rem; }
 
-    .chart-card { margin-top: 20px; }
     .placeholder {
       height: 240px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--muted);
-      border: 2px dashed var(--border);
+      border: 2px dashed #b6e3ec;
       border-radius: 8px;
+      background: repeating-linear-gradient(135deg, #f7fdfe, #f7fdfe 12px, #effafc 12px, #effafc 24px);
     }
   </style>
 </head>
 
 <body>
 <!-- ===================== HTML: what is ON the page ===================== -->
-<main>
-  <h1>Unit Economics Calculator</h1>
-  <p class="subtitle">Monthly subscription model · all figures in GBP (£)</p>
+<header>
+  <div class="inner">
+    <h1>Unit Economics Calculator</h1>
+    <p>See whether a subscription business makes money on each customer, and how much cash it needs to get there.</p>
+    <span class="tag">Monthly subscription</span><span class="tag">GBP (£)</span>
+  </div>
+</header>
 
+<main>
   <div class="layout">
 
-    <!-- LEFT COLUMN: the six inputs from SPEC.md -->
-    <section class="card">
+    <!-- LEFT COLUMN: the six inputs from SPEC.md, grouped by colour -->
+    <section class="card inputs">
       <h2>Your assumptions</h2>
 
-      <div class="field">
-        <label for="price">Price per month</label>
-        <div class="input-wrap"><span>£</span><input id="price" type="number" min="0" step="1" value="50"></div>
-        <div class="hint">What one customer pays each month</div>
+      <div class="revenue">
+        <div class="group-title">Revenue</div>
+        <div class="field">
+          <label for="price">Price per month</label>
+          <div class="input-wrap"><span>£</span><input id="price" class="num" type="text" inputmode="decimal" value="50"></div>
+          <div class="hint">What one customer pays each month</div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="variableCost">Variable cost per customer per month</label>
-        <div class="input-wrap"><span>£</span><input id="variableCost" type="number" min="0" step="1" value="15"></div>
-        <div class="hint">Hosting, materials, payment fees</div>
+      <div class="cost">
+        <div class="group-title">Costs</div>
+        <div class="field">
+          <label for="variableCost">Variable cost per customer per month</label>
+          <div class="input-wrap"><span>£</span><input id="variableCost" class="num" type="text" inputmode="decimal" value="15"></div>
+          <div class="hint">Hosting, materials, payment fees</div>
+        </div>
+        <div class="field">
+          <label for="fixedCosts">Fixed costs per month</label>
+          <div class="input-wrap"><span>£</span><input id="fixedCosts" class="num" type="text" inputmode="decimal" value="10000"></div>
+          <div class="hint">Rent, salaries and other costs that don't change with customers</div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="cac">Customer acquisition cost (CAC)</label>
-        <div class="input-wrap"><span>£</span><input id="cac" type="number" min="0" step="1" value="200"></div>
-        <div class="hint">Marketing and sales spend to win one customer</div>
+      <div class="growth">
+        <div class="group-title">Growth</div>
+        <div class="field">
+          <label for="cac">Customer acquisition cost (CAC)</label>
+          <div class="input-wrap"><span>£</span><input id="cac" class="num" type="text" inputmode="decimal" value="200"></div>
+          <div class="hint">Marketing and sales spend to win one customer</div>
+        </div>
+        <div class="field">
+          <label for="newCustomers">New customers per month</label>
+          <div class="input-wrap"><span>#</span><input id="newCustomers" class="num" type="text" inputmode="decimal" value="50"></div>
+          <div class="hint">How many customers you win each month</div>
+        </div>
       </div>
 
-      <div class="field">
-        <label for="churn">Monthly churn</label>
-        <div class="input-wrap"><input id="churn" type="number" min="0" max="100" step="0.1" value="5"><span>%</span></div>
-        <div class="hint">Share of customers who cancel each month</div>
-      </div>
-
-      <div class="field">
-        <label for="fixedCosts">Fixed costs per month</label>
-        <div class="input-wrap"><span>£</span><input id="fixedCosts" type="number" min="0" step="100" value="10000"></div>
-        <div class="hint">Rent, salaries and other costs that don't change with customers</div>
-      </div>
-
-      <div class="field">
-        <label for="newCustomers">New customers per month</label>
-        <div class="input-wrap"><input id="newCustomers" type="number" min="0" step="1" value="50"></div>
-        <div class="hint">How many customers you win each month</div>
+      <div class="retention">
+        <div class="group-title">Retention</div>
+        <div class="field">
+          <label for="churn">Monthly churn</label>
+          <div class="input-wrap"><input id="churn" class="num" type="text" inputmode="decimal" value="5"><span>%</span></div>
+          <div class="hint">Share of customers who cancel each month</div>
+        </div>
       </div>
     </section>
 
-    <!-- RIGHT COLUMN: the seven results (filled in by JavaScript in Step 3) -->
-    <section class="card">
+    <!-- RIGHT COLUMN: the seven results (filled in by JavaScript in Step 3).
+         Each tile uses the colour of the input group it mainly depends on. -->
+    <section class="card results">
       <h2>Results</h2>
-      <div class="result"><span>Monthly margin per customer</span><span class="value" id="outMargin">–</span></div>
-      <div class="result"><span>Gross margin %</span><span class="value" id="outMarginPct">–</span></div>
-      <div class="result"><span>Average customer lifetime</span><span class="value" id="outLifetime">–</span></div>
-      <div class="result"><span>Lifetime value (LTV)</span><span class="value" id="outLtv">–</span></div>
-      <div class="result"><span>LTV : CAC ratio</span><span class="value" id="outRatio">–</span></div>
-      <div class="result"><span>CAC payback</span><span class="value" id="outPayback">–</span></div>
-      <div class="result"><span>Break-even customers</span><span class="value" id="outBreakEven">–</span></div>
+      <div class="result revenue"><span>Monthly margin per customer</span><span class="value" id="outMargin">–</span></div>
+      <div class="result revenue"><span>Gross margin %</span><span class="value" id="outMarginPct">–</span></div>
+      <div class="result retention"><span>Average customer lifetime</span><span class="value" id="outLifetime">–</span></div>
+      <div class="result key"><span>Lifetime value (LTV)</span><span class="value" id="outLtv">–</span></div>
+      <div class="result key"><span>LTV : CAC ratio</span><span class="value" id="outRatio">–</span></div>
+      <div class="result growth"><span>CAC payback</span><span class="value" id="outPayback">–</span></div>
+      <div class="result cost"><span>Break-even customers</span><span class="value" id="outBreakEven">–</span></div>
     </section>
 
   </div>
 
   <!-- BOTTOM: the 24-month chart (built in Step 3) -->
-  <section class="card chart-card">
+  <section class="card chart">
     <h2>24-month projection</h2>
     <div class="placeholder">Chart will appear here in Step 3</div>
   </section>
 </main>
+
+<!-- ===================== JavaScript: what the page DOES ===================== -->
+<script>
+  // Add thousands separators (commas) to a number typed as text.
+  // Example: "10000" -> "10,000", "1234.5" -> "1,234.5"
+  function addCommas(text) {
+    // Keep only digits and the first decimal point
+    let clean = text.replace(/[^0-9.]/g, "");
+    const firstDot = clean.indexOf(".");
+    if (firstDot !== -1) {
+      clean = clean.slice(0, firstDot + 1) + clean.slice(firstDot + 1).replace(/\./g, "");
+    }
+    const [whole, decimals] = clean.split(".");
+    const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return decimals !== undefined ? withCommas + "." + decimals : withCommas;
+  }
+
+  // Turn "10,000" back into the number 10000 (used by the calculations in Step 3)
+  function readNumber(id) {
+    return Number(document.getElementById(id).value.replace(/,/g, "")) || 0;
+  }
+
+  // Format every input as the user types, keeping the cursor in the right place
+  document.querySelectorAll("input.num").forEach(function (input) {
+    input.value = addCommas(input.value);
+
+    input.addEventListener("input", function () {
+      // Remember how many digits were before the cursor...
+      const digitsBeforeCursor = input.value
+        .slice(0, input.selectionStart)
+        .replace(/[^0-9.]/g, "").length;
+
+      input.value = addCommas(input.value);
+
+      // ...and put the cursor back after the same number of digits
+      let pos = 0, seen = 0;
+      while (pos < input.value.length && seen < digitsBeforeCursor) {
+        if (/[0-9.]/.test(input.value[pos])) seen++;
+        pos++;
+      }
+      input.setSelectionRange(pos, pos);
+    });
+  });
+</script>
 </body>
 </html>
