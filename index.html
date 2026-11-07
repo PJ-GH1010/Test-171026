@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unit Economics Calculator</title>
+
+  <!-- ===================== CSS: how the page LOOKS ===================== -->
+  <style>
+    /* Colours and spacing defined once, reused everywhere */
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1d2330;
+      --muted: #5f6b7a;
+      --accent: #2d5bd7;
+      --border: #dde1e7;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    h1 { margin: 0 0 4px; font-size: 1.8rem; }
+    .subtitle { margin: 0 0 28px; color: var(--muted); }
+
+    /* Two columns side by side on wide screens, stacked on phones */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+
+    /* One input row: label on top, box underneath, hint below */
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+    .field .hint { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+
+    /* The box with the £ or % symbol attached */
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+    .input-wrap span {
+      padding: 0 12px;
+      color: var(--muted);
+      background: #f0f2f5;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap input {
+      flex: 1;
+      border: none;
+      padding: 10px 12px;
+      font-size: 1rem;
+      outline: none;
+      min-width: 0;
+    }
+
+    /* Results list */
+    .result {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .result:last-child { border-bottom: none; }
+    .result .value { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .chart-card { margin-top: 20px; }
+    .placeholder {
+      height: 240px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+
+<body>
+<!-- ===================== HTML: what is ON the page ===================== -->
+<main>
+  <h1>Unit Economics Calculator</h1>
+  <p class="subtitle">Monthly subscription model · all figures in GBP (£)</p>
+
+  <div class="layout">
+
+    <!-- LEFT COLUMN: the six inputs from SPEC.md -->
+    <section class="card">
+      <h2>Your assumptions</h2>
+
+      <div class="field">
+        <label for="price">Price per month</label>
+        <div class="input-wrap"><span>£</span><input id="price" type="number" min="0" step="1" value="50"></div>
+        <div class="hint">What one customer pays each month</div>
+      </div>
+
+      <div class="field">
+        <label for="variableCost">Variable cost per customer per month</label>
+        <div class="input-wrap"><span>£</span><input id="variableCost" type="number" min="0" step="1" value="15"></div>
+        <div class="hint">Hosting, materials, payment fees</div>
+      </div>
+
+      <div class="field">
+        <label for="cac">Customer acquisition cost (CAC)</label>
+        <div class="input-wrap"><span>£</span><input id="cac" type="number" min="0" step="1" value="200"></div>
+        <div class="hint">Marketing and sales spend to win one customer</div>
+      </div>
+
+      <div class="field">
+        <label for="churn">Monthly churn</label>
+        <div class="input-wrap"><input id="churn" type="number" min="0" max="100" step="0.1" value="5"><span>%</span></div>
+        <div class="hint">Share of customers who cancel each month</div>
+      </div>
+
+      <div class="field">
+        <label for="fixedCosts">Fixed costs per month</label>
+        <div class="input-wrap"><span>£</span><input id="fixedCosts" type="number" min="0" step="100" value="10000"></div>
+        <div class="hint">Rent, salaries and other costs that don't change with customers</div>
+      </div>
+
+      <div class="field">
+        <label for="newCustomers">New customers per month</label>
+        <div class="input-wrap"><input id="newCustomers" type="number" min="0" step="1" value="50"></div>
+        <div class="hint">How many customers you win each month</div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: the seven results (filled in by JavaScript in Step 3) -->
+    <section class="card">
+      <h2>Results</h2>
+      <div class="result"><span>Monthly margin per customer</span><span class="value" id="outMargin">–</span></div>
+      <div class="result"><span>Gross margin %</span><span class="value" id="outMarginPct">–</span></div>
+      <div class="result"><span>Average customer lifetime</span><span class="value" id="outLifetime">–</span></div>
+      <div class="result"><span>Lifetime value (LTV)</span><span class="value" id="outLtv">–</span></div>
+      <div class="result"><span>LTV : CAC ratio</span><span class="value" id="outRatio">–</span></div>
+      <div class="result"><span>CAC payback</span><span class="value" id="outPayback">–</span></div>
+      <div class="result"><span>Break-even customers</span><span class="value" id="outBreakEven">–</span></div>
+    </section>
+
+  </div>
+
+  <!-- BOTTOM: the 24-month chart (built in Step 3) -->
+  <section class="card chart-card">
+    <h2>24-month projection</h2>
+    <div class="placeholder">Chart will appear here in Step 3</div>
+  </section>
+</main>
+</body>
+</html>
